@@ -31,15 +31,11 @@ webcamRow = ['./Webcam/web2', 'A08', 'km. 5,6 - Milano Nord itinere Nord']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web3', 'R14', 'km. 2,0 - BO Casalecchio itinere Ovest']
 webcamInfo.append(webcamRow)
-webcamRow = ['./Webcam/web4', 'A01', 'km. 220,3 - Diramazione A1/A1 VAR']
-webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web5', 'A14', 'km. 154,9 - Galleria Case Bruciate esterna Sud']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web6', 'A04', 'km. 147,9 Svincolo A4/A58 dir Ovest']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web7', 'A04', 'km. 149,5 A4/A58 dir Ovest']
-webcamInfo.append(webcamRow)
-webcamRow = ['./Webcam/web8', 'A04', 'km. 172,6 Bergamo itinere Ovest']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web9', 'A04', 'km. 215,3 Brescia Ovest itinere Ovest']
 webcamInfo.append(webcamRow)
@@ -49,7 +45,7 @@ webcamRow = ['./Webcam/web11', 'A14', 'km. 9,0 Bivio A14-Raccordo Casalecchio it
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web12', 'A14', 'km. 16,0 Bologna Fiera itinere Sud']
 webcamInfo.append(webcamRow)
-webcamRow = ['./Webcam/web13', 'A14', 'km. 95,0 Cesena Nord itinere Nord']
+webcamRow = ['./Webcam/web14', 'A14', 'km. 152,1 Galleria Boncio esterna Nord']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web15', 'A08', 'km. 6,5 Villoresi itinere Sud']
 webcamInfo.append(webcamRow)
@@ -57,12 +53,12 @@ webcamRow = ['./Webcam/web16', 'A08', 'km. 2,2 Milano Fiera itinere Nord']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web17', 'A09', 'km. 20,1 A9/A36 Itinere Nord']
 webcamInfo.append(webcamRow)
-webcamRow = ['./Webcam/web18', 'A01', 'km. 54,5 Ponte Po']
-webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web19', 'A01', 'km. 139,0 Reggio Emilia itinere Nord']
 webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web20', 'A01', 'km. 194,0 A1/A14 Casalecchio itinere Sud']
 webcamInfo.append(webcamRow)
+
+webcamName = ['web0','web1','web2','web3','web5','web6','web7','web9','web10','web11','web12','web14','web15','web16','web17','web19','web20']
 
 #%% 
 #-------------------------------------------------------------------------------------------------------------------------------------------#
@@ -74,17 +70,13 @@ webcamInfo.append(webcamRow)
 originals = []
 backgrounds = []
 
-webcamAnalized = 'web4'
-
 # Background subtraction
-source = './Webcam/' + webcamAnalized
 frame_rate = 3
 take_freq = 7
 threshold = 40
-backgroundRatio = 0.7
+backgroundRatio = 0.85
 
 # Results Analysis
-outputReport = 'report_' + webcamAnalized + '.pdf'
 accuracyThreshold = 10
 errorThreshold = 12
 
@@ -95,44 +87,55 @@ errorThreshold = 12
 #
 #-------------------------------------------------------------------------------------------------------------------------------------------#
 
-# Start background subtraction
-originals,backgrounds = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
+for web in webcamName :
 
-# Start Analysis
-index = 0
-numBG = len(backgrounds)
-
-print('\n')
-print('START ANALYSIS')
-
-initializationPage()
-print('initiliazation done')
-
-while(index < numBG):
+    print('\nANALIZE WEBCAM NUMBER ' + web[3] + ':\n')
     
-    print('Processing image '+ str(index) + '...')
-    resultAnalysis(originals[index], backgrounds[index], index, accuracyThreshold, errorThreshold)
-    index += 1
+    webcamAnalized = web
+    
+    source = './Webcam/' + webcamAnalized
+    outputReport = 'report_' + webcamAnalized + '.pdf'
+    originals = []
+    backgrounds = []
+
+    # Start background subtraction
+    originals,backgrounds = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
+    
+    # Start Analysis
+    index = 0
+    numBG = len(backgrounds)
+    
+    print('\n')
+    print('START ANALYSIS')
+    
+    initializationPage()
+    print('initiliazation done')
+    
+    while(index < numBG):
+        
+        print('Processing image '+ str(index) + '...')
+        resultAnalysis(originals[index], backgrounds[index], index, accuracyThreshold, errorThreshold)
+        index += 1
+        print('Done')
+    
+    print('ANALYSIS TERMINATED')
+    
+    print('\nMerge all reports...')
+    
+    paths = glob.glob('report_num*.pdf')
+    paths.sort()
+    mergeReport(outputReport, paths)
+    
     print('Done')
-
-print('ANALYSIS TERMINATED')
-
-print('\nMerge all reports...')
-
-paths = glob.glob('report_num*.pdf')
-paths.sort()
-mergeReport(outputReport, paths)
-
-print('Done')
-
-for report in paths:
-    os.remove(report)
     
-os.remove('bg.jpeg')
-os.remove('true.jpeg')
-os.remove('error.png')
-
-print('Output report ' + outputReport + ' is ready')
+    for report in paths:
+        os.remove(report)
+        
+    os.remove('bg.jpeg')
+    os.remove('true.jpeg')
+    os.remove('error.png')
+    
+    print('Output report ' + outputReport + ' is ready')
 
 #%%
 #-------------------------------------------------------------------------------------------------------------------------------------------#
@@ -312,13 +315,13 @@ def initializationPage():
     text = 'Results report:'
     pdf.cell(0, 20, txt="{}".format(text), ln=2, border = 0, align="C")
     
-    if(source == './Webcam/web1'):
+    if(source == './Webcam/web0'):
         key = 0
-    if(source == './Webcam/web2'):
+    if(source == './Webcam/web1'):
         key = 1
-    if(source == './Webcam/web3'):
+    if(source == './Webcam/web2'):
         key = 2
-    if(source == './Webcam/web4'):
+    if(source == './Webcam/web3'):
         key = 3
     if(source == './Webcam/web5'):
         key = 4
@@ -326,10 +329,26 @@ def initializationPage():
         key = 5
     if(source == './Webcam/web7'):
         key = 6
-    if(source == './Webcam/web8'):
-        key = 7
     if(source == './Webcam/web9'):
-        key = 8   
+        key = 7
+    if(source == './Webcam/web10'):
+        key = 8 
+    if(source == './Webcam/web11'):
+        key = 9 
+    if(source == './Webcam/web12'):
+        key = 10 
+    if(source == './Webcam/web14'):
+        key = 11
+    if(source == './Webcam/web15'):
+        key = 12 
+    if(source == './Webcam/web16'):
+        key = 13 
+    if(source == './Webcam/web17'):
+        key = 14
+    if(source == './Webcam/web19'):
+        key = 15
+    if(source == './Webcam/web20'):
+        key = 16
         
     
     pdf.set_font("Arial", size=11)
