@@ -58,7 +58,10 @@ webcamInfo.append(webcamRow)
 webcamRow = ['./Webcam/web20', 'A01', 'km. 194,0 A1/A14 Casalecchio itinere Sud']
 webcamInfo.append(webcamRow)
 
-webcamName = ['web0','web1','web2','web3','web5','web6','web7','web9','web10','web11','web12','web14','web15','web16','web17','web19','web20']
+#webcamName = ['web0','web1','web2','web3','web5','web6','web7','web9','web10','web11','web12','web14','web15','web16','web17','web19','web20']
+
+webcamName = ['web1','web2','web3','web5','web6','web7','web10','web11','web12','web16','web19']
+
 
 #%% 
 #-------------------------------------------------------------------------------------------------------------------------------------------#
@@ -71,14 +74,14 @@ originals = []
 backgrounds = []
 
 # Background subtraction
-frame_rate = 3
-take_freq = 7
+frame_rate = 5
+take_freq = 11
 threshold = 40
-backgroundRatio = 0.85
+backgroundRatio = 0.7
 
 # Results Analysis
 accuracyThreshold = 10
-errorThreshold = 12
+errorThreshold = 10
 
 #%% 
 #-------------------------------------------------------------------------------------------------------------------------------------------#
