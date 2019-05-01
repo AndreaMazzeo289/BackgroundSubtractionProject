@@ -41,3 +41,17 @@ backgroundRatio = 0.7
 accuracyThreshold = 10
 errorThreshold = 10
 ################################################
+
+################################################
+RUN 3 SETTINGS
+################################################
+# Background subtraction
+frame_rate = 5
+take_freq = 11
+threshold = 40
+backgroundRatio = 1
+
+# Results Analysis
+accuracyThreshold = 10
+errorThreshold = 10
+################################################
