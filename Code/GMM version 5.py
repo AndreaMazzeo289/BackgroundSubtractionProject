@@ -6,7 +6,7 @@ Created on Sat Apr 20 21:32:32 2019
 """
 
 #%% --------------------------------- IMPORT ---------------------------------
-
+from copy import deepcopy
 import cv2 as cv
 import os
 from matplotlib import pyplot as plt
@@ -111,7 +111,8 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
                     
                     cv.imshow('Original video', gray) 
                     cv.imshow('Background detected', bg)
-                    cv.imshow('Foreground detected', fg)                     
+                    cv.imshow('Foreground detected', fg) 
+                    #cv.imshow('Dynamic Evaluation', drawAllRectangles(gray))                    
                     
                     k = cv.waitKey(30)
     
@@ -136,13 +137,12 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
             
         cap.release()
         
-        mog.setBackgroundRatio(ratio)        
+#        mog.setBackgroundRatio(ratio)   
         means.append(dynamicRatioEvaluation(gray))
+        
         
         endVideo_time = time.time()
         print("|\t Spent time up to now: {:.2f} sec".format(endVideo_time - start_time))                            
-        
-                
         
         if(k == 27):
             break      
@@ -155,6 +155,8 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
     print('|\t  END BACKGROUND SUBTRACTION\t\t|')
     print('|\t\t\t\t\t\t|')
     print('-------------------------------------------------')
+    
+#    daytimeDetection(means)    
     
     return original_frames, bg_frames, fg_frames
 
@@ -171,38 +173,106 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
 #           < 180 --> afternoon to night (sunset)  
 #
 def dynamicRatioEvaluation(frame):
-    points = []
+    points_value = []
+    points_coord = []
     
     for i in range(1,100):
-        row = int(np.random.uniform(180-40, 180+40))
-        column = int(np.random.uniform(320-40, 320+40))
         
-        points.append(frame[row][column])
+        row_left_up = int(np.random.uniform(30, 110))
+        column_left_up= int(np.random.uniform(30, 110))
+        points_coord.append([row_left_up, column_left_up])
+        
+        row_left_down = int(np.random.uniform(250, 330))
+        column_left_down = int(np.random.uniform(30, 110))
+        points_coord.append([row_left_down, column_left_down])        
+        
+        row_center = int(np.random.uniform(180-40, 180+40))
+        column_center = int(np.random.uniform(320-40, 320+40))
+        points_coord.append([row_center, column_center])
+        
+        row_right_up = int(np.random.uniform(30, 110))
+        column_right_up= int(np.random.uniform(530, 610))
+        points_coord.append([row_right_up, column_right_up])        
+        
+        row_right_down = int(np.random.uniform(250, 330))
+        column_right_down= int(np.random.uniform(530, 610))
+        points_coord.append([row_right_down, column_right_down])                       
+        
+        points_value.append(frame[row_center][column_center])
+        points_value.append(frame[row_left_down][column_left_down])
+        points_value.append(frame[row_left_up][column_left_up])
+        points_value.append(frame[row_right_up][column_right_up])
+        points_value.append(frame[row_right_down][column_right_down])
     
-    mean = int(np.mean(points))
-    print("Mean: " + str(mean))
+    
+    drawPoints(frame, points_coord) 
+    mean = int(np.mean(points_value))
+#    print("Mean: " + str(mean))
     
     return mean
 #%%
-showImage(backgrounds[10])
-dynamicRatioEvaluation(backgrounds[10])
-showImage(backgrounds[15])
-dynamicRatioEvaluation(backgrounds[15])
-showImage(backgrounds[22])
-dynamicRatioEvaluation(backgrounds[22])
-showImage(backgrounds[23])
-dynamicRatioEvaluation(backgrounds[23])
-showImage(backgrounds[33])
-dynamicRatioEvaluation(backgrounds[33])
-showImage(backgrounds[44])
-dynamicRatioEvaluation(backgrounds[44])
-showImage(backgrounds[51])
-dynamicRatioEvaluation(backgrounds[51])
-
-showImage(backgrounds[14])
-dynamicRatioEvaluation(backgrounds[14])
-
+def daytimeDetection(means):
+    day = []
+    night = []    
+    
+    for mean in means:
+        mid_point = int((max(means) - min(means))/2)
+        split = mid_point + min(means)
+        
+        if(mean > split):        
+            day.append(mean)
+        elif(mean < split):
+            night.append(mean)
+            
+    gauss_day = np.random.normal(int(np.mean(day)), np.std(day), 1000)
+    plt.hist(gauss_day, color = 'green')
+    gauss_night = np.random.normal(int(np.mean(night)), np.std(night), 1000)
+    plt.hist(gauss_night, color = 'green')
+    plt.show()
+    plt.hist(means, 50, color = 'red', range = (40, 130))
+    plt.show()
 #%%
+def drawPoints(frame, points):
+    
+#    temp = np.zeros((360,640,1))
+    temp = np.copy(frame)
+    
+    for point in points:
+        x = point[1]
+        y = point[0]
+        
+        temp[y][x] = 255
+        
+#    showImage(temp)
+
+def drawAllRectangles(frame):
+    # Upper left
+    temp = drawRectangle(frame, 30, 110, 30, 110)
+    # Lower left 
+    temp = drawRectangle(temp, 30, 110, 250, 330)
+    # Upper right
+    temp = drawRectangle(temp, 530, 610, 30, 110)
+    # Lower right
+    temp = drawRectangle(temp, 530, 610, 250, 330)
+    # Center
+    temp = drawRectangle(temp, 280, 360, 140, 220)
+    
+    return temp
+
+def drawRectangle(frame, xA, xB, yA, yB):
+
+    temp = np.copy(frame)
+#    for i in range(yA, yB):   
+    for j in range(xA, xB):
+        temp[yA][j] = 255
+        temp[yB][j] = 255
+        
+    for j in range(yA, yB):
+        temp[j][xA] = 255
+        temp[j][xB] = 255
+        
+    return temp;
+
 def showImage(frame):
     
     while(True):
@@ -220,13 +290,8 @@ means = []
 for frame in backgrounds:
     means.append(dynamicRatioEvaluation(frame))
 
-plt.hist(means)
+plt.hist(means, 50)
 
-#%%
-
-hist = cv.calcHist(means,[0],None, [256], [0,256])
-plt.plot(hist)
-#showImage(hist)
 #%%
 list_image = backgrounds
 i = 0
@@ -236,7 +301,8 @@ while(cycle):
     
     cv.imshow('Backgroung', backgrounds[i])
     cv.imshow('Foregroung', foregrounds[i])
-    cv.imshow('Original', originals[i])    
+    cv.imshow('Original', originals[i])
+    cv.imshow('Dynamic Evaluation', drawAllRectangles(originals[i]))    
     cv.moveWindow('Backgroung', 700,10)
     cv.moveWindow('Foregroung', 0,380)
     cv.moveWindow('Original', 0,5)
