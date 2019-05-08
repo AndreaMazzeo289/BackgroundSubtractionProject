@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """
+<<<<<<< HEAD
 Created on Sat May  4 22:57:05 2019
 
 @author: daniele
@@ -7,6 +8,8 @@ Created on Sat May  4 22:57:05 2019
 
 # -*- coding: utf-8 -*-
 """
+=======
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
 Created on Sat Apr 20 21:32:32 2019
 
 @author: andre
@@ -29,9 +32,14 @@ backgroundRatio = 0.7
 
 originals = []
 backgrounds = []
+<<<<<<< HEAD
 means = []
 
 originals,backgrounds,foregrounds,means = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
+=======
+
+originals,backgrounds, foregrounds = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
 
 #%% ------------------------- BACKGROUND SUBTRACTION -------------------------
 
@@ -138,11 +146,16 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
                     if(k == 115):
                         bg_frames.append(bg)
                         fg_frames.append(fg)
+<<<<<<< HEAD
                         original_frames.append(gray)
+=======
+                        original_frames.append(frame)
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
                     
             frameCount += 1
             
         cap.release()
+<<<<<<< HEAD
            
         mean = dynamicRatioEvaluation(gray)
         means.append(mean)
@@ -151,6 +164,12 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
         ratio, threshold = manage_bg_ratio(mean)
         mog.setBackgroundRatio(ratio)
         mog.setVarThreshold(threshold)        
+=======
+        
+#        mog.setBackgroundRatio(ratio)   
+        means.append(dynamicRatioEvaluation(gray))
+        
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
         
         endVideo_time = time.time()
         print("|\t Spent time up to now: {:.2f} sec".format(endVideo_time - start_time))                            
@@ -169,6 +188,7 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
     
 #    daytimeDetection(means)    
     
+<<<<<<< HEAD
     return original_frames, bg_frames, fg_frames, means
 
 def manage_bg_ratio(mean):
@@ -186,6 +206,22 @@ def manage_bg_ratio(mean):
     print("Updating ratio to {}".format(ratio))
     return ratio, threshold
 
+=======
+    return original_frames, bg_frames, fg_frames
+
+#
+# Evaluation of sunset time and sunrise time, in order to change the background
+# ratio dinamically
+#
+# It's work taking into account some row of the sky, so it depends from every 
+# camera view
+#
+# Web12 --> 7 row of the upper pixel 
+#
+#   Average > 180 --> morning/afternoon
+#           < 180 --> afternoon to night (sunset)  
+#
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
 def dynamicRatioEvaluation(frame):
     points_value = []
     points_coord = []
@@ -224,7 +260,11 @@ def dynamicRatioEvaluation(frame):
 #    print("Mean: " + str(mean))
     
     return mean
+<<<<<<< HEAD
 
+=======
+#%%
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
 def daytimeDetection(means):
     day = []
     night = []    
@@ -245,7 +285,11 @@ def daytimeDetection(means):
     plt.show()
     plt.hist(means, 50, color = 'red', range = (40, 130))
     plt.show()
+<<<<<<< HEAD
 
+=======
+#%%
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
 def drawPoints(frame, points):
     
 #    temp = np.zeros((360,640,1))
@@ -345,10 +389,13 @@ while(cycle):
     
 cv.destroyAllWindows()
     
+<<<<<<< HEAD
 #%% SAVING NUMPY ARRAYS
 np.save("bg f.r.2, dinamic ratio", backgrounds2)    
 np.save("fg f.r.2, dinamic ratio", foregrounds2) 
 np.save("orig f.r.2, dinamic ratio", originals2) 
 np.save("means f.r.2, dinamic ratio", means2) 
     
+=======
+>>>>>>> 5f3c7d8b12f0003f3aaeb4a2e7baa64526675055
     
