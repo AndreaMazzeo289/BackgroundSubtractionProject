@@ -1,0 +1,14 @@
+White --> Foreground
+Grey ---> Shadow
+Black --> Background
+
+[0 - 70] --> Night
+[71 - 100] --> Sunset/Sunrise
+[100 - 255] --> Day
+
+
+Note:
+
+- frame_rate = 2    e    bg ratio dinamico ---> male, adattamento di immagini troppo irrilevanti come fari auto
+
+

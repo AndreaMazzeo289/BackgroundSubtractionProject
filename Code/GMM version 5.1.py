@@ -1,12 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat May  4 22:57:05 2019
-
-@author: daniele
-"""
-
-# -*- coding: utf-8 -*-
-"""
 Created on Sat Apr 20 21:32:32 2019
 
 @author: andre
@@ -22,16 +15,16 @@ import time
 #%% ----------------------------- INITIALIZATION -----------------------------
 
 source = './webcam/web12/'
-frame_rate = 5
-take_freq = 2
+frame_rate = 2
+take_freq = 1
 threshold = 70
 backgroundRatio = 0.7
 
-originals = []
-backgrounds = []
-means = []
+originals2 = []
+backgrounds2 = []
+means2 = []
 
-originals,backgrounds,foregrounds,means = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
+originals2,backgrounds2,foregrounds2,means2 = backgroundSubtraction(source,frame_rate,take_freq,threshold,backgroundRatio)
 
 #%% ------------------------- BACKGROUND SUBTRACTION -------------------------
 
@@ -315,8 +308,8 @@ while(cycle):
     
     cv.imshow('Backgroung', backgrounds[i])
     cv.imshow('Foregroung', foregrounds[i])
-    cv.imshow('Original', originals[i])
-    cv.imshow('Dynamic Evaluation', drawAllRectangles(originals[i]))    
+    cv.imshow('Original', originals2[i])
+    cv.imshow('Dynamic Evaluation', drawAllRectangles(originals2[i]))    
     cv.moveWindow('Backgroung', 700,10)
     cv.moveWindow('Foregroung', 0,380)
     cv.moveWindow('Original', 0,5)
@@ -344,11 +337,5 @@ while(cycle):
                     break
     
 cv.destroyAllWindows()
-    
-#%% SAVING NUMPY ARRAYS
-np.save("bg f.r.2, dinamic ratio", backgrounds2)    
-np.save("fg f.r.2, dinamic ratio", foregrounds2) 
-np.save("orig f.r.2, dinamic ratio", originals2) 
-np.save("means f.r.2, dinamic ratio", means2) 
     
     

@@ -14,7 +14,7 @@ import numpy as np
 
 #%% ----------------------------- INITIALIZATION -----------------------------
 
-source = './Webcam/web4'
+source = './webcam/web4'
 frame_rate = 3
 take_freq = 7
 threshold = 40
@@ -143,3 +143,31 @@ def backgroundSubtraction (source,frame_rate,take_freq,threshold,ratio):
     print('-------------------------------------------------')
     
     return original_frames,bg_frames
+    
+#%%
+    
+def process_frame(frame, mog):
+   
+    fg = mog.apply(frame)
+    bg = mog.getBackgroundImage()
+    
+    cv.imshow('Original video', frame) 
+    cv.imshow('Background detected', bg)
+    cv.imshow('Foreground detected', fg)
+
+    k = cv.waitKey(30)
+    
+    # Press ESC to terminate
+    # Press S to save background (useless, is done in automatic way)
+    
+    if(takeFlag == True):
+        takeFlag = False
+        original_frames.append(frame)
+        bg_frames.append(bg)
+    
+    if(k == 27):
+        break
+    
+    if(k == 115):
+        bg_frames.append(bg)
+        original_frames.append(frame)
