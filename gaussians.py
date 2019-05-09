@@ -12,6 +12,9 @@ from scipy.stats import norm
 import tarfile
 import pickle
 
+DAY = 'day'
+NIGHT = 'night'
+
 #%%
 #==============================================================================
 #--------------------------GENERATE DAY/NIGHT GAUSSIANS------------------------
@@ -39,7 +42,9 @@ def generateDayNightGaussians(avg_pixel_day, avg_pixel_night):
     sigma_night = np.std(avg_pixel_night)
     gauss_night = norm(mu_night, sigma_night)
 
-    return gauss_day, gauss_night
+#    return gauss_day, gauss_night
+
+    return {DAY:gauss_day, NIGHT:gauss_night}    
     
 #==============================================================================
 #-------------------------PLOT DAY/NIGHT GAUSSIANS-----------------------------
@@ -52,16 +57,54 @@ def generateDayNightGaussians(avg_pixel_day, avg_pixel_night):
 # - Gauss_night     -->   gaussian distribution of the pixel intensity of the night
 #
 #==============================================================================
-def plotDayNightGaussian(gauss_day, gauss_night):
+def plotDayNightGaussian(gaussians, title = 'Day/Night Gaussians'):
    
     x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
     plt.xlim(10,150)
     
-    y_day = gauss_day.pdf(x_axis)
-    y_night = gauss_night.pdf(x_axis)              # get the norm.pdf for x interval 
+    y_day = gaussians[DAY].pdf(x_axis)
+    y_night = gaussians[NIGHT].pdf(x_axis)              # get the norm.pdf for x interval 
 
+    plt.title(title)
     plt.plot(x_axis, y_day, color = 'orange')
     plt.plot(x_axis, y_night, color = 'b')        
+    plt.show()
+
+def plotGaussian(gauss_distr):
+    x_axis = np.linspace(0,255,1000)
+    y_axis = gauss_distr.pdf(x_axis)
+    
+#    plt.xlim(10,150)
+    plt.plot(x_axis, y_axis, color = 'r')
+    plt.fill_between(x_axis, 0, y_axis, color = '#b80303')
+
+def plotGaussianComparison(old_gaussians, new_gaussians, old_bounds, new_bounds):
+    
+    x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
+    plt.xlim(10,150)
+    
+    y_day1 = old_gaussians[DAY].pdf(x_axis)
+    y_night1 = old_gaussians[NIGHT].pdf(x_axis)
+        
+    y_day2 = new_gaussians[DAY].pdf(x_axis)
+    y_night2 = new_gaussians[NIGHT].pdf(x_axis)    
+    
+    plt.title('Red --> new Gaussians\n Yellow --> old gaussians')
+    
+    plt.ylim(0, 0.06)
+    plt.axvline(x = old_bounds[DAY], color = 'orange')    
+    plt.axvline(x = old_bounds[NIGHT], color = 'orange')
+    plt.axvline(x = new_bounds[DAY], color = 'g')    
+    plt.axvline(x = new_bounds[NIGHT], color = 'g')    
+    
+    plt.plot(x_axis, y_day2, color = '#b80303')
+    plt.plot(x_axis, y_night2, color = '#b80303')
+    plt.fill_between(x_axis, 0, y_day2, color = 'r')
+    plt.fill_between(x_axis, 0, y_night2, color = 'r')    
+    
+    plt.plot(x_axis, y_day1, color = 'y')
+    plt.plot(x_axis, y_night1, color = 'y')        
+    
     plt.show()
 
 #==============================================================================
@@ -72,27 +115,29 @@ def plotDayNightGaussian(gauss_day, gauss_night):
 #
 #   PARAMETERS:
 #
-#   - pixel_intesity   -->   pixel intensity in the range [0,255]
-#   - gauss_distr      -->   distrubution used to evaluate the probability
-#   - color            -->   color for the plotted distribution
-#
+#   - pixel_intesities   -->   pixel intensity in the range [0,255]
+#   - gaussians      -->   distrubution used to evaluate the probability
+#   
 #==============================================================================
-def getProbability(pixel_intensity, gauss_distr, color = 'r'):
+#     
+#==============================================================================
+def getProbabilities(pixel_intensities, gaussians):
     
-    x_axis = np.linspace(0,255,255)
-    y_axis = gauss_distr.pdf(x_axis)
-    plt.plot(x_axis, y_axis, color = color)
+    # Prob_day of:  x < pixel_intens
+    prob_day = gaussians[DAY].cdf(pixel_intensities[DAY])
     
-    prob = y_axis[pixel_intensity]
-    print("Probability\t--> \t{}\nPixel intensity --> \t{}\n".format(prob, pixel_intensity))
+    # Prob_night of:  x > pixel_intens    
+    prob_night = gaussians[NIGHT].cdf(pixel_intensities[NIGHT])
+    
+    return {DAY: prob_day, NIGHT: prob_night}
 
-
-def getPixelIntensity(probability, gauss_distr, color = 'r'):
+def getPixelIntensities(probabilities, gaussians):
     
-    pixel_intensity = gauss_distr.pdf(probability)
+    pixel_intens_day = gaussians[DAY].ppf(probabilities[DAY])
     
-    print("Probability\t--> \t{}\nPixel intensity --> \t{}\n".format(probability, pixel_intensity))
-
+    pixel_intens_night = gaussians[NIGHT].ppf(probabilities[NIGHT])
+    
+    return {DAY: pixel_intens_day, NIGHT: pixel_intens_night}
 #==============================================================================
 #--------------------------SPLIT AVERAGE PIXELS--------------------------------
 #   Splitting of the pixel intensity average into average belonging to the daytime
@@ -111,8 +156,8 @@ def getPixelIntensity(probability, gauss_distr, color = 'r'):
 #
 #==============================================================================
 def splitAvgPixels(avg_pixels):
-    day = []
-    night = []    
+    dayPixels = []
+    nightPixels = []    
     
     # the mid point splits avg pixel in avg pixel of day from night
     for avg_pixel in avg_pixels:
@@ -120,24 +165,29 @@ def splitAvgPixels(avg_pixels):
         split = mid_point + min(avg_pixels)
         
         if(avg_pixel > split):        
-            day.append(avg_pixel)
+            dayPixels.append(avg_pixel)
         elif(avg_pixel < split):
-            night.append(avg_pixel)
+            nightPixels.append(avg_pixel)
             
-    gauss_day, gauss_night = generateDayNightGaussians(day, night)
+#    gauss_day, gauss_night = generateDayNightGaussians(day, night)
+        
+    gaussians = generateDayNightGaussians(dayPixels, nightPixels)
     
     x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
 #    plt.xlim(10,150)
     
-    y_day = gauss_day.pdf(x_axis)
-    y_night = gauss_night.pdf(x_axis)              # get the norm.pdf for x interval 
-
+    y_day = gaussians[DAY].pdf(x_axis)
+    y_night = gaussians[NIGHT].pdf(x_axis)
+    
+    y_gaussians = {DAY:y_day, NIGHT:y_night}
+#    plt.title('Splitting')
 #    plt.plot(x_axis, y_day, color = 'y')
 #    plt.plot(x_axis, y_night, color = 'b')        
 #    plt.show()
     
-    return gauss_day, gauss_night, y_day, y_night
+#    return gauss_day, gauss_night, y_day, y_night
 
+    return gaussians, y_gaussians
 #==============================================================================
 #----------------------------OVERALL GAUSSIANS---------------------------------
 #
@@ -158,17 +208,18 @@ def splitAvgPixels(avg_pixels):
 #
 #==============================================================================
 def overallGaussians(avg_pixels):
-    gauss_day, gauss_night, y_day, y_night = splitAvgPixels(avg_pixels)    
+    gaussians, y_gaussians = splitAvgPixels(avg_pixels)    
     
-    return gauss_day, gauss_night, y_day, y_night
+#    return gauss_day, gauss_night, y_day, y_night
 
+    return gaussians, y_gaussians
 
-def plotOverallGaussian(y_overall_day, y_overall_night):
+def plotOverallGaussian(y_gaussians):
     
     x_axis = np.linspace(0,255,255)
     plt.xlim(10, 150)
-    plt.plot(x_axis, y_overall_day, color = 'orange')
-    plt.plot(x_axis, y_overall_night, color = 'b')
+    plt.plot(x_axis, y_gaussians[DAY], color = 'orange')
+    plt.plot(x_axis, y_gaussians[NIGHT],color = 'b')
     plt.show()
 
 

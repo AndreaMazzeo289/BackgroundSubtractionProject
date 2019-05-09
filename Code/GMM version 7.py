@@ -1,41 +1,50 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Thu May  9 00:31:15 2019
-
-@author: daniele
-"""
-
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Apr 20 21:32:32 2019
-
-@author: andre
-"""
-
 #%% --------------------------------- IMPORT ---------------------------------
 import cv2 as cv
 import os
 from matplotlib import pyplot as plt
 import numpy as np
 import time
-from scipy.stats import norm
 import gaussians as gauss
+import randomPoints as rp
 
 #%% ----------------------------- INITIALIZATION -----------------------------
+DAY = 'day'
+NIGHT = 'night'
+ESC_KEY = 27
+WHITE_PIXEL = 255
+GREY_PIXEL = 127
 
 source = './webcam/web12/'
-frame_rate = 5
-take_freq = 2
 threshold = 70
 backgroundRatio = 0.7
-
 originals = []
 backgrounds = []
 
+#==============================================================================
+# # HYPERPARAMETERS
+#==============================================================================
+frame_rate = 5
+take_freq = 2
+WEIGHT = 3
+DELTA_FG = 10000
+OFFSET = 5
+NORMAL_BG_RATIO = 0.7
+RAPID_BG_RATIO = 0.3
+NORMAL_THRESHOLD = 70
+NIGHT_THRESHOLD = 130
+# INIT VALUE
+day_bound = 100
+night_bound = 80
 avg_pixels = gauss.initGaussian().tolist()
+#==============================================================================
+# 
+#==============================================================================
+
+
+bounds = {DAY:day_bound, NIGHT:night_bound}
 
 originals,backgrounds,foregrounds,avg_pixels = backgroundSubtraction(source,
-                                                        frame_rate,take_freq, avg_pixels)
+                    frame_rate,take_freq, avg_pixels, bounds)
 
 #%% ------------------------- BACKGROUND SUBTRACTION -------------------------
 
@@ -55,7 +64,7 @@ originals,backgrounds,foregrounds,avg_pixels = backgroundSubtraction(source,
 #
 ####################################################################################
 
-def backgroundSubtraction (source, frame_rate, take_freq, avg_pixels):
+def backgroundSubtraction (source, frame_rate, take_freq, avg_pixels, bounds):
 
     threshold = 70
     ratio = 0.7
@@ -66,8 +75,6 @@ def backgroundSubtraction (source, frame_rate, take_freq, avg_pixels):
     mog.setVarThreshold(threshold)
     #mog.setHistory(5)
     mog.setBackgroundRatio(ratio)
-    day_bound = 100
-    night_bound = 80    
     
     videoPaths = []
     
@@ -143,39 +150,37 @@ def backgroundSubtraction (source, frame_rate, take_freq, avg_pixels):
                         fg_frames.append(fg)
                         bg_frames.append(bg)
                         
-                    if(k == 27):
+                        
+                    if(k == ESC_KEY):
                         break
                     
-                    if(k == 115):
-                        bg_frames.append(bg)
-                        fg_frames.append(fg)
-                        original_frames.append(gray)
                  #end if   
             frameCount += 1
             
         cap.release()
         #end video
-        avg_pixel = computePixelIntensityAverage(gray)
+        
+        avg_pixel = rp.computePixelIntensityAverage(gray)
         avg_pixels.append(avg_pixel)
         print("Avg Pixel computed: {}".format(avg_pixel))
         
         if(len(fg_frames)>2):
             prev_fg = fg_frames[len(fg_frames)-2]
             act_fg = fg
-            day_bound, night_bound = updateTransitionValue(avg_pixel, 
-                                        day_bound, night_bound, prev_fg, act_fg)
+            bounds = updateTransitionValue(avg_pixel, 
+                                        bounds, prev_fg, act_fg)
                     
-        ratio, threshold = manage_bg_ratio(avg_pixel, day_bound, night_bound)
+        ratio, threshold = manage_bg_ratio(avg_pixel, bounds)
         
         mog.setBackgroundRatio(ratio)
         mog.setVarThreshold(threshold)  
         
-        day_bound, night_bound = updateGaussians(avg_pixels, avg_pixels, day_bound, night_bound)
+        bounds = updateGaussians(avg_pixel, avg_pixels, bounds)
         
         endVideo_time = time.time()
         print("|\t Spent time up to now: {:.2f} sec".format(endVideo_time - start_time))                            
         
-        if(k == 27):
+        if(k == ESC_KEY):
             break      
 
     cv.destroyAllWindows()
@@ -197,39 +202,66 @@ def backgroundSubtraction (source, frame_rate, take_freq, avg_pixels):
 #
 #==============================================================================
 
-def updateGaussians(avg_pixel, avg_pixels, day_bound, night_bound):
+def updateGaussians(avg_pixel, avg_pixels, bounds):
     
-    gauss_day, gauss_night, y_day, y_night = gauss.overallGaussians(avg_pixels)    
-    prob_day_bound = gauss.getProbability(day_bound, gauss_day)
-    prob_night_bound = gauss.getProbability(night_bound, gauss_night)
+    print("\n-----------START UPDATING GAUSSIANS-----------")
     
-    w = 3    #Weight of the new avg_pixel wrt the init ones
-    avg_pixels.append(avg_pixel * w)
-    gauss_day, gauss_night, y_day, y_night = gauss.overallGaussians(avg_pixels)
+    old_gaussians, old_y_gaussians = gauss.overallGaussians(avg_pixels)    
+    probabilities = gauss.getProbabilities(bounds, old_gaussians)
     
-    day_bound = gauss.getPixelIntensity(prob_day_bound, gauss_day)
-    night_bound = gauss.getPixelIntensity(prob_night_bound, gauss_night)   
+    print("Probability of day bound --> {:.5f}".format(probabilities[DAY]))    
+    print("Probability of night bound --> {:.5f}".format(probabilities[NIGHT]))    
     
-    return day_bound, night_bound
+#    gauss.plotDayNightGaussian(old_gauss_day, old_gauss_night, 'Old Gaussians')    
+    
+    w = WEIGHT    #Weight of the new avg_pixel wrt the init ones
+    for i in range(0,w):    
+        avg_pixels.append(avg_pixel)
+    
+    new_gaussians, new_y_gaussians = gauss.overallGaussians(avg_pixels)
+    
+#    gauss.plotDayNightGaussian(new_gauss_day, new_gauss_night, 'Updated Gaussians')   
+    
+    new_bounds = gauss.getPixelIntensities(probabilities, new_gaussians)
+    
+    gauss.plotGaussianComparison(old_gaussians, new_gaussians, bounds, new_bounds)
+    
+    print("New day bound fixed at    {}".format(new_bounds[DAY]))
+    print("New night bound fixed at  {}".format(new_bounds[NIGHT]))
+    
+    print("\n-----------END UPDATING GAUSSIANS-----------")    
+    
+    return new_bounds
 
-def updateTransitionValue(avg_pixel, day_bound, night_bound, prev_fg, act_fg):
+#==============================================================================
+# 
+#==============================================================================
+def updateTransitionValue(avg_pixel, bounds, prev_fg, act_fg):
     # intensity difference of 127 and 255 intensity pixel between two consecutive foreground    
-    diff = 10000
-
+    diff = 0
+    print("\n-----------START UPDATING TRANSITION VALUE-----------")
     # check if you are in a moment near the transition
-    if(avg_pixel > night_bound - 5 and avg_pixel < day_bound + 5):
-        prev_fg = np.count_nonzero(prev_fg == 255) + np.count_nonzero(prev_fg == 127)
-        act_fg = np.count_nonzero(act_fg == 255) + np.count_nonzero(act_fg == 127)
+    if(avg_pixel > bounds[NIGHT] - OFFSET and avg_pixel < bounds[DAY] + OFFSET):
+        prev_fg = np.count_nonzero(prev_fg == WHITE_PIXEL) + np.count_nonzero(prev_fg == GREY_PIXEL)
+        act_fg = np.count_nonzero(act_fg == WHITE_PIXEL) + np.count_nonzero(act_fg == GREY_PIXEL)
         diff = abs(act_fg - prev_fg)
         
-        if(diff > 10000):
+        if(diff > DELTA_FG):
+            print("Delta Foreground Exceeded")
             # case in which you are 
-            if(abs(avg_pixel - day_bound) > abs(avg_pixel - night_bound)):
-                night_bound = avg_pixel -5 # error margin
+            if(abs(avg_pixel - bounds[DAY]) > abs(avg_pixel - bounds[NIGHT])):
+                bounds[NIGHT] = avg_pixel - OFFSET # error margin
             else:
-                day_bound = avg_pixel + 5
+                bounds[DAY] = avg_pixel + OFFSET
             
-    return day_bound, night_bound
+                print("New day bound fixed at    {}".format(bounds[DAY]))
+                print("New night bound fixed at  {}".format(bounds[NIGHT]))
+    
+
+         
+    print("\n-----------END UPDATING TRANSITION VALUE-----------")     
+    
+    return bounds
 
 #diff = []
 #for i in range(0,len(foregrounds)):
@@ -240,22 +272,22 @@ def updateTransitionValue(avg_pixel, day_bound, night_bound, prev_fg, act_fg):
 #==============================================================================
 #         
 #==============================================================================
-def manage_bg_ratio(avg_pixel, day_bound, night_bound):
+def manage_bg_ratio(avg_pixel, bounds):
     
     day_label = ''    
     
-    if(avg_pixel <= night_bound):
+    if(avg_pixel <= bounds[NIGHT]):
         day_label = 'Night_Time'        
-        ratio = 0.7
-        threshold = 120
-    elif(avg_pixel >= day_bound):
+        ratio = NORMAL_BG_RATIO
+        threshold = NIGHT_THRESHOLD
+    elif(avg_pixel >= bounds[DAY]):
         day_label = 'Day_Time'        
-        ratio = 0.7
-        threshold = 70
+        ratio = NORMAL_BG_RATIO
+        threshold = NORMAL_THRESHOLD
     else: # transition moment --> sunset/sunrise
         day_label = 'Sunset / Sunrise'        
-        ratio = 0.3
-        threshold = 70
+        ratio = RAPID_BG_RATIO
+        threshold = NORMAL_THRESHOLD
         
     print(day_label)
     print("Updating ratio to {}".format(ratio))
@@ -278,113 +310,89 @@ def manage_bg_ratio(avg_pixel, day_bound, night_bound):
 #   - avg_pixel -->    computed average of the pixel intensity of the frame
 #
 #==============================================================================
-def computePixelIntensityAverage(frame):
-    points_value = []
-    points_coord = []
-    
-    for i in range(1,100):
-        
-        row_left_up = int(np.random.uniform(30, 110))
-        column_left_up= int(np.random.uniform(30, 110))
-        points_coord.append([row_left_up, column_left_up])
-        
-        row_left_down = int(np.random.uniform(250, 330))
-        column_left_down = int(np.random.uniform(30, 110))
-        points_coord.append([row_left_down, column_left_down])        
-        
-        row_center = int(np.random.uniform(180-40, 180+40))
-        column_center = int(np.random.uniform(320-40, 320+40))
-        points_coord.append([row_center, column_center])
-        
-        row_right_up = int(np.random.uniform(30, 110))
-        column_right_up= int(np.random.uniform(530, 610))
-        points_coord.append([row_right_up, column_right_up])        
-        
-        row_right_down = int(np.random.uniform(250, 330))
-        column_right_down= int(np.random.uniform(530, 610))
-        points_coord.append([row_right_down, column_right_down])                       
-        
-        points_value.append(frame[row_center][column_center])
-        points_value.append(frame[row_left_down][column_left_down])
-        points_value.append(frame[row_left_up][column_left_up])
-        points_value.append(frame[row_right_up][column_right_up])
-        points_value.append(frame[row_right_down][column_right_down])
-    
-    
-    drawPoints(frame, points_coord) 
-    avg_pixel = int(np.mean(points_value))
-    
-    return avg_pixel
-
-#==============================================================================
-# ----------------------------DAYTIME DETECTION--------------------------------
-
-#==============================================================================
-def daytimeDetection(means):
-    day = []
-    night = []    
-    
-    for mean in means:
-        mid_point = int((max(means) - min(means))/2)
-        split = mid_point + min(means)
-        
-        if(mean > split):        
-            day.append(mean)
-        elif(mean < split):
-            night.append(mean)
-            
-    gauss_day = np.random.normal(int(np.mean(day)), np.std(day), 1000)
-    plt.hist(gauss_day, color = 'green')
-    gauss_night = np.random.normal(int(np.mean(night)), np.std(night), 1000)
-    plt.hist(gauss_night, color = 'green')
-    plt.show()
-    plt.hist(means, 50, color = 'red', range = (40, 130))
-    plt.show()
-#==============================================================================
-# ---------------------SQUARES FUNCTIONS--------------------------------------
-#==============================================================================
-def drawPoints(frame, points):
-    
-    temp = np.copy(frame)
-    
-    for point in points:
-        x = point[1]
-        y = point[0]
-        
-        temp[y][x] = 255
-        
-#    showImage(temp)
-
-def drawAllRectangles(frame):
-    # Upper left
-    temp = drawRectangle(frame, 30, 110, 30, 110)
-    # Lower left 
-    temp = drawRectangle(temp, 30, 110, 250, 330)
-    # Upper right
-    temp = drawRectangle(temp, 530, 610, 30, 110)
-    # Lower right
-    temp = drawRectangle(temp, 530, 610, 250, 330)
-    # Center
-    temp = drawRectangle(temp, 280, 360, 140, 220)
-    
-    return temp
-
-def drawRectangle(frame, xA, xB, yA, yB):
-
-    temp = np.copy(frame)
-#    for i in range(yA, yB):   
-    for j in range(xA, xB):
-        temp[yA][j] = 255
-        temp[yB][j] = 255
-        
-    for j in range(yA, yB):
-        temp[j][xA] = 255
-        temp[j][xB] = 255
-        
-    return temp;
-#==============================================================================
-# 
-#==============================================================================
+#def computePixelIntensityAverage(frame):
+#    points_value = []
+#    points_coord = []
+#    
+#    for i in range(1,100):
+#        
+#        row_left_up = int(np.random.uniform(30, 110))
+#        column_left_up= int(np.random.uniform(30, 110))
+#        points_coord.append([row_left_up, column_left_up])
+#        
+#        row_left_down = int(np.random.uniform(250, 330))
+#        column_left_down = int(np.random.uniform(30, 110))
+#        points_coord.append([row_left_down, column_left_down])        
+#        
+#        row_center = int(np.random.uniform(180-40, 180+40))
+#        column_center = int(np.random.uniform(320-40, 320+40))
+#        points_coord.append([row_center, column_center])
+#        
+#        row_right_up = int(np.random.uniform(30, 110))
+#        column_right_up= int(np.random.uniform(530, 610))
+#        points_coord.append([row_right_up, column_right_up])        
+#        
+#        row_right_down = int(np.random.uniform(250, 330))
+#        column_right_down= int(np.random.uniform(530, 610))
+#        points_coord.append([row_right_down, column_right_down])                       
+#        
+#        points_value.append(frame[row_center][column_center])
+#        points_value.append(frame[row_left_down][column_left_down])
+#        points_value.append(frame[row_left_up][column_left_up])
+#        points_value.append(frame[row_right_up][column_right_up])
+#        points_value.append(frame[row_right_down][column_right_down])
+#    
+#    
+#    drawPoints(frame, points_coord) 
+#    avg_pixel = int(np.mean(points_value))
+#    
+#    return avg_pixel
+#
+##==============================================================================
+## ---------------------SQUARES FUNCTIONS--------------------------------------
+##==============================================================================
+#def drawPoints(frame, points):
+#    
+#    temp = np.copy(frame)
+#    
+#    for point in points:
+#        x = point[1]
+#        y = point[0]
+#        
+#        temp[y][x] = 255
+#        
+##    showImage(temp)
+#
+#def drawAllRectangles(frame):
+#    # Upper left
+#    temp = drawRectangle(frame, 30, 110, 30, 110)
+#    # Lower left 
+#    temp = drawRectangle(temp, 30, 110, 250, 330)
+#    # Upper right
+#    temp = drawRectangle(temp, 530, 610, 30, 110)
+#    # Lower right
+#    temp = drawRectangle(temp, 530, 610, 250, 330)
+#    # Center
+#    temp = drawRectangle(temp, 280, 360, 140, 220)
+#    
+#    return temp
+#
+#def drawRectangle(frame, xA, xB, yA, yB):
+#
+#    temp = np.copy(frame)
+##    for i in range(yA, yB):   
+#    for j in range(xA, xB):
+#        temp[yA][j] = 255
+#        temp[yB][j] = 255
+#        
+#    for j in range(yA, yB):
+#        temp[j][xA] = 255
+#        temp[j][xB] = 255
+#        
+#    return temp;
+##==============================================================================
+## 
+##==============================================================================
 def showImage(frame):
     
     while(True):
