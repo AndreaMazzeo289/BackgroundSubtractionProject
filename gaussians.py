@@ -14,7 +14,11 @@ import pickle
 
 DAY = 'day'
 NIGHT = 'night'
-
+MAX = 'max'
+MIN = 'min'
+X = np.linspace(0,255,255)
+NORMAL_THRESHOLD = 70
+NIGHT_THRESHOLD = 140
 #%%
 #==============================================================================
 #--------------------------GENERATE DAY/NIGHT GAUSSIANS------------------------
@@ -42,9 +46,7 @@ def generateDayNightGaussians(avg_pixel_day, avg_pixel_night):
     sigma_night = np.std(avg_pixel_night)
     gauss_night = norm(mu_night, sigma_night)
 
-#    return gauss_day, gauss_night
-
-    return {DAY:gauss_day, NIGHT:gauss_night}    
+    return {DAY:gauss_day, NIGHT:gauss_night}
     
 #==============================================================================
 #-------------------------PLOT DAY/NIGHT GAUSSIANS-----------------------------
@@ -57,7 +59,7 @@ def generateDayNightGaussians(avg_pixel_day, avg_pixel_night):
 # - Gauss_night     -->   gaussian distribution of the pixel intensity of the night
 #
 #==============================================================================
-def plotDayNightGaussian(gaussians, title = 'Day/Night Gaussians'):
+def plotDayNightGaussian(gaussians, pixel_intensity):
    
     x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
     plt.xlim(10,150)
@@ -65,10 +67,26 @@ def plotDayNightGaussian(gaussians, title = 'Day/Night Gaussians'):
     y_day = gaussians[DAY].pdf(x_axis)
     y_night = gaussians[NIGHT].pdf(x_axis)              # get the norm.pdf for x interval 
 
-    plt.title(title)
-    plt.plot(x_axis, y_day, color = 'orange')
-    plt.plot(x_axis, y_night, color = 'b')        
-    plt.show()
+    idx = np.argwhere(np.diff(np.sign(y_day - y_night)) != 0)
+    idx = idx[0][0]
+
+    plt.title('Day/Night Gaussians')
+    plt.plot(x_axis[idx:255], y_day[idx:255], color = 'orange')
+    plt.plot(x_axis[0:idx], y_night[0:idx], color = 'b') 
+    plt.fill_between(x_axis[idx:255], y_day[idx:255], color = 'orange')
+    plt.fill_between(x_axis[0:idx], y_night[0:idx], color = 'b')    
+           
+    # case: pixel intensity belongs to day time
+    if(pixel_intensity >= idx):
+      plt.scatter(pixel_intensity, y_day[pixel_intensity])
+    
+    # case: pixel intensity belongs to night time
+    else:
+      plt.scatter(pixel_intensity, y_night[pixel_intensity])
+    
+    
+    plt.grid()
+    plt.show()   
 
 def plotGaussian(gauss_distr):
     x_axis = np.linspace(0,255,1000)
@@ -78,35 +96,84 @@ def plotGaussian(gauss_distr):
     plt.plot(x_axis, y_axis, color = 'r')
     plt.fill_between(x_axis, 0, y_axis, color = '#b80303')
 
-def plotGaussianComparison(old_gaussians, new_gaussians, old_bounds, new_bounds):
-    
-    x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
-    plt.xlim(10,150)
-    
-    y_day1 = old_gaussians[DAY].pdf(x_axis)
-    y_night1 = old_gaussians[NIGHT].pdf(x_axis)
-        
-    y_day2 = new_gaussians[DAY].pdf(x_axis)
-    y_night2 = new_gaussians[NIGHT].pdf(x_axis)    
-    
-    plt.title('Red --> new Gaussians\n Yellow --> old gaussians')
-    
-    plt.ylim(0, 0.06)
-    plt.axvline(x = old_bounds[DAY], color = 'orange')    
-    plt.axvline(x = old_bounds[NIGHT], color = 'orange')
-    plt.axvline(x = new_bounds[DAY], color = 'g')    
-    plt.axvline(x = new_bounds[NIGHT], color = 'g')    
-    
-    plt.plot(x_axis, y_day2, color = '#b80303')
-    plt.plot(x_axis, y_night2, color = '#b80303')
-    plt.fill_between(x_axis, 0, y_day2, color = 'r')
-    plt.fill_between(x_axis, 0, y_night2, color = 'r')    
-    
-    plt.plot(x_axis, y_day1, color = 'y')
-    plt.plot(x_axis, y_night1, color = 'y')        
-    
-    plt.show()
+def GaussianComparison(old_gaussians, new_gaussians,
+                           old_learning_rate, new_learning_rate, avg_pixel):
+     
+     x_axis = np.linspace(0,255,255) 
+     
+     old_y_day = old_gaussians[DAY].pdf(x_axis)
+     old_y_night = old_gaussians[NIGHT].pdf(x_axis)        
+     new_y_day = new_gaussians[DAY].pdf(x_axis)
+     new_y_night = new_gaussians[NIGHT].pdf(x_axis)    
+     
+     old_learning_idx = np.argwhere(np.diff(np.sign(old_learning_rate[DAY] - 
+                                                    old_learning_rate[NIGHT])) != 0)
+     new_learning_idx = np.argwhere(np.diff(np.sign(new_learning_rate[DAY] - 
+                                                    new_learning_rate[NIGHT])) != 0)
+     
+     old_learning_idx = old_learning_idx[0][0]
+     new_learning_idx = new_learning_idx[0][0]
+     
+     old_gauss_idx = np.argwhere(np.diff(np.sign(old_y_day - old_y_night)) != 0)
+     new_gauss_idx = np.argwhere(np.diff(np.sign(new_y_day - new_y_night)) != 0)
+     
+     old_gauss_idx = old_gauss_idx[0][0]
+     new_gauss_idx = new_gauss_idx[0][0]
+     
+     plt.title('Red --> new Gaussians\n Yellow --> old gaussians')
+     plt.xlim(10,150)
+     # NEW AND OLD GAUSSIANS 
+     plt.plot(x_axis[new_gauss_idx:255],
+              new_y_day[new_gauss_idx:255], color = '#b80303')
+     plt.plot(x_axis[0:new_gauss_idx],
+              new_y_night[0:new_gauss_idx], color = '#b80303')
+     plt.fill_between(x_axis[new_gauss_idx:255], 0,
+                      new_y_day[new_gauss_idx:255], color = 'r', linewidth = 3)
+     plt.fill_between(x_axis[0:new_gauss_idx+1], 0,
+                      new_y_night[0:new_gauss_idx+1], color = 'r', linewidth = 3)    
+     
+     plt.plot(x_axis[old_gauss_idx:255],
+              old_y_day[old_gauss_idx:255], color = 'y', linewidth = 2)
+     plt.plot(x_axis[0:old_gauss_idx+1],
+              old_y_night[0:old_gauss_idx+1], color = 'y', linewidth = 2)
+     
+     plotPoint(new_y_day, new_y_night, avg_pixel)     
+     plt.show()
+ 
+     plt.xlim(10,150)
+     plt.title('Blue --> new Learning Rate\nGreen --> old Learning Rate')
+     # NEW AND OLD LEARNING RATE
+     plt.plot(x_axis[new_learning_idx:255],
+              new_learning_rate[DAY][new_learning_idx:255], color = 'b', linewidth = 2)
+     plt.plot(x_axis[0:new_learning_idx],
+              new_learning_rate[NIGHT][0:new_learning_idx], color = 'b', linewidth = 2)
+     plt.fill_between(x_axis[new_learning_idx:255], 0,
+                      new_learning_rate[DAY][new_learning_idx:255], color = 'b')
+     plt.fill_between(x_axis[0:new_learning_idx+1], 0,
+                      new_learning_rate[NIGHT][0:new_learning_idx+1], color = 'b')    
+     
+     plt.plot(x_axis[old_learning_idx:255],
+              old_learning_rate[DAY][old_learning_idx:255], color = 'y', linewidth = 3)
+     plt.plot(x_axis[0:old_learning_idx],
+              old_learning_rate[NIGHT][0:old_learning_idx], color = 'y', linewidth = 3)        
+ 
+     plotPoint(new_learning_rate[DAY], new_learning_rate[NIGHT], avg_pixel)
+     plt.show()
+     
 
+
+def plotPoint(day_part, night_part, point):
+    idx = np.argwhere(np.diff(np.sign(day_part - night_part)) != 0)
+    idx = idx[0][0]
+    
+    # day time case
+    if(point >= idx):
+        plt.scatter(point, day_part[point], c='g', marker='o', s=150)
+        
+    #night time case
+    else:
+        plt.scatter(point, night_part[point], c='g', marker='o', s=150)
+        
 #==============================================================================
 #-----------------------------GET PROBABILITY----------------------------------
 #
@@ -174,18 +241,10 @@ def splitAvgPixels(avg_pixels):
     gaussians = generateDayNightGaussians(dayPixels, nightPixels)
     
     x_axis = np.linspace(0,255,255)     #255 is the max luminosity    
-#    plt.xlim(10,150)
-    
     y_day = gaussians[DAY].pdf(x_axis)
     y_night = gaussians[NIGHT].pdf(x_axis)
-    
+   
     y_gaussians = {DAY:y_day, NIGHT:y_night}
-#    plt.title('Splitting')
-#    plt.plot(x_axis, y_day, color = 'y')
-#    plt.plot(x_axis, y_night, color = 'b')        
-#    plt.show()
-    
-#    return gauss_day, gauss_night, y_day, y_night
 
     return gaussians, y_gaussians
 #==============================================================================
@@ -222,7 +281,138 @@ def plotOverallGaussian(y_gaussians):
     plt.plot(x_axis, y_gaussians[NIGHT],color = 'b')
     plt.show()
 
+def generateThreshold(gaussians):
+    mean_day = int(gaussians[DAY].mean())
+    mean_night = int(gaussians[NIGHT].mean())
+    
+    mean = mean_night + (mean_day - mean_night)/2
+    std = 10
+#    print('night mean : {}'.format(mean_night))
+#    print('day mean : {}'.format(mean_day))
+#    print('mean : {}'.format(mean))
+    x_axis = np.linspace(0,255,255)
+    sigmoid = 1 - norm(mean, std).cdf(x_axis)
+    threshold = 70*sigmoid + NORMAL_THRESHOLD
 
+    return threshold
+
+def plotThreshold(threshold):
+    x_axis = np.linspace(0,255,255)
+    plt.xlim(10,150)
+    plt.title('Threshold')
+    plt.plot(x_axis, threshold)
+    plt.grid()
+    plt.show() 
+    
+def generateLearningRateTrading(gauss_distr):
+
+    x_axis = np.linspace(0,255,255)
+  
+    MEAN_DAY = gauss_distr[DAY].mean()
+    STD_DAY = gauss_distr[DAY].std()
+#    STD_DAY = 1
+    OFFSET_DAY = -2
+
+    MEAN_NIGHT = gauss_distr[NIGHT].mean()+10
+    STD_NIGHT = gauss_distr[NIGHT].std()
+    OFFSET_NIGHT = -2
+    
+    RANGE = 0.85
+    MIN_VALUE = 0.1
+    BOUND = 100
+    
+    gauss_distr_shifted = {DAY: norm(MEAN_DAY + OFFSET_DAY, STD_DAY),
+                           NIGHT: norm(MEAN_NIGHT + OFFSET_NIGHT, STD_NIGHT)}
+    
+    density_shifted_DAY = gauss_distr_shifted[DAY].cdf(X)
+    density_shifted_NIGHT = gauss_distr_shifted[NIGHT].cdf(X)
+    densities_shifted = {DAY: density_shifted_DAY, NIGHT: density_shifted_NIGHT}
+    
+    ripartitionDAY = gauss_distr[DAY].pdf(X)
+    ripartitionNIGHT = gauss_distr[NIGHT].pdf(X)
+    ripartitions = {DAY: ripartitionDAY, NIGHT: ripartitionNIGHT}
+  
+    learning_rate_DAY = MIN_VALUE + (1 - densities_shifted[DAY]) * RANGE
+    learning_rate_NIGHT = MIN_VALUE + (densities_shifted[NIGHT]) * RANGE
+    learning_rate = {DAY: learning_rate_DAY, NIGHT: learning_rate_NIGHT}
+
+    return learning_rate
+
+def plotLearningRate(learningRate, pixel_intensity = 0):
+  
+    x_axis = np.linspace(0,255,255)
+    
+    idx = np.argwhere(np.diff(np.sign(learningRate[DAY] - learningRate[NIGHT])) != 0)
+    idx = idx[0][0]
+    
+    plt.xlim(10,150)
+    plt.plot(x_axis[idx:255], learningRate[DAY][idx:255], c='g')
+    plt.plot(x_axis[0:idx], learningRate[NIGHT][0:idx], c='g')
+    
+    # case: pixel intensity belongs to day time
+    if(pixel_intensity >= idx):
+      plt.scatter(pixel_intensity, learningRate[DAY][pixel_intensity])
+    
+    # case: pixel intensity belongs to night time
+    else:
+      plt.scatter(pixel_intensity, learningRate[NIGHT][pixel_intensity])
+    
+    plt.grid()
+    plt.show()
+
+def comparisonLearningRateGaussians(gaussians, learningRate, pixel_intensity = 0):
+
+    SCALE = 0.05
+    OFFSET = 0.005
+    
+    x_axis = np.linspace(0,255,255)
+
+    idx_learning_rate = np.argwhere(np.diff(np.sign(learningRate[DAY] - learningRate[NIGHT])) != 0)
+    idx_learning_rate = idx_learning_rate[0][0]
+    
+    gaussian_day = gaussians[DAY].pdf(x_axis)
+    gaussian_night = gaussians[NIGHT].pdf(x_axis)              # get the norm.pdf for x interval 
+
+    idx_gauss = np.argwhere(np.diff(np.sign(gaussian_day - gaussian_night)) != 0)
+    idx_gauss = idx_gauss[0][0]
+    
+#    idx_day = np.argwhere(np.diff(np.sign(learningRate[DAY] - gaussian_day)) != 0)
+#    idx_night = np.argwhere(np.diff(np.sign(learningRate[NIGHT] - gaussian_night)) != 0)
+    
+    plt.xlim(10,150)
+         
+    plotLearningRate(learningRate, pixel_intensity)
+    
+    plotDayNightGaussian(gaussians, pixel_intensity)
+
+    
+def comparisonThresholdGaussians(gaussians, threshold):
+    
+    x_axis = np.linspace(0,255,255)
+  
+    mean_day = int(gaussians[DAY].mean())
+    ripartition = gaussians[DAY].pdf(x_axis)
+
+    h = ripartition[mean_day]
+    
+    plt.xlim(10,150)
+    
+    y_day = gaussians[DAY].pdf(x_axis)
+    y_night = gaussians[NIGHT].pdf(x_axis)              # get the norm.pdf for x interval 
+
+    idx = np.argwhere(np.diff(np.sign(y_day - y_night)) != 0)
+    idx = idx[0][0]
+
+    plt.title('Day/Night Gaussians --> Orange/Blue\nThreshold --> Black')
+    plt.plot(x_axis[idx:255], y_day[idx:255], color = 'orange')
+    plt.plot(x_axis[0:idx], y_night[0:idx], color = 'b') 
+    plt.fill_between(x_axis[idx:255], y_day[idx:255], color = 'orange')
+    plt.fill_between(x_axis[0:idx], y_night[0:idx], color = 'b')  
+    
+    plt.plot(x_axis, -0.032 + threshold*0.0005, c='black')
+           
+    plt.grid()
+    plt.show()
 #==============================================================================
 #--------------------------INIT GAUSSIAN---------------------------------------
 #   Load the initialization pixel intensity, based on 5 samples taken from 
