@@ -1,0 +1,57 @@
+################################################
+RUN 0 SETTINGS
+################################################
+# Background subtraction
+frame_rate = 3
+take_freq = 7
+threshold = 40
+backgroundRatio = 0.85
+
+# Results Analysis
+accuracyThreshold = 10
+errorThreshold = 12
+################################################
+
+
+################################################
+RUN 1 SETTINGS
+################################################
+# Background subtraction
+frame_rate = 5
+take_freq = 11
+threshold = 40
+backgroundRatio = 1
+
+# Results Analysis
+accuracyThreshold = 15
+errorThreshold = 10
+################################################
+
+
+################################################
+RUN 2 SETTINGS
+################################################
+# Background subtraction
+frame_rate = 5
+take_freq = 11
+threshold = 40
+backgroundRatio = 0.7
+
+# Results Analysis
+accuracyThreshold = 10
+errorThreshold = 10
+################################################
+
+################################################
+RUN 3 SETTINGS
+################################################
+# Background subtraction
+frame_rate = 5
+take_freq = 11
+threshold = 40
+backgroundRatio = 1
+
+# Results Analysis
+accuracyThreshold = 10
+errorThreshold = 10
+################################################
