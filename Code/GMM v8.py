@@ -33,15 +33,6 @@ backgrounds = []
 frame_rate = 5
 take_freq = 2
 WEIGHT = 3
-DELTA_FG = 10000
-OFFSET = 5
-NORMAL_BG_RATIO = 0.9
-RAPID_BG_RATIO = 0.1
-NORMAL_THRESHOLD = 70
-NIGHT_THRESHOLD = 140
-# INIT VALUE
-day_bound = 108
-night_bound = 70
 avg_pixels = gauss.initGaussian().tolist()
 
 #%% ----------------------------------MAIN------------------------------------
@@ -60,11 +51,11 @@ originals,backgrounds,foregrounds,avg_pixels = backgroundSubtraction(source,
 # params: path_webcam ->  path of webcam folder
 # params: frame_rate  ->  how many frames take
 # params: take_freq   ->  how often takes frame for originals and backgrounds 
-# params: threshold   ->  threshold for mog2
-# params: ratio       ->  background ratio for mog2
+# params: avg_pixels  --> initialization average pixels
 #
 # return: originals   ->  frame of original video, used for measure the accuracy
-# return: backgrounds ->  background detected
+# return: backgrounds ->  backgrounds detected
+# return: foregrounds ->  foregrounds detected
 #
 ####################################################################################
 
@@ -213,6 +204,15 @@ def backgroundSubtraction(source, frame_rate, take_freq, avg_pixels):
 
 # =============================================================================
 #-----------------------------UPDATE AVERAGE PIXELS----------------------------
+#    This function appends the new pixel average with a weight, in order to
+#    have more consideration w.r.t. the initialization ones
+#    
+#    PARAMS:
+#    - avg_pixel  --> new pixel average computed
+#    - avg_pixels --> list of all pixel averages by time
+#    
+#    RETURN:
+#    - avg_pixels --> the updated pixel average list 
 # =============================================================================
 def weightedAppend(avg_pixel, avg_pixels):
     
@@ -223,9 +223,16 @@ def weightedAppend(avg_pixel, avg_pixels):
     return avg_pixels
 
 #==============================================================================
-# ----------------------UPDATE GAUSSIANS--------------------------------------
-#   - update givind more weight to the new avg_pixel    X
-#   - update giving weight and foregetting the old results (to be find)
+# --------------------------------UPDATE GAUSSIANS-----------------------------
+#   
+#    PARAMS:
+#    - avg_pixels        --> list of all pixel averages by time
+#    - old_gaussians     --> gaussians to be updated
+#    - old_learning_rate --> learning rate to be updated
+#    
+#    RETURN:
+#    - new_learning_rate --> updated learning rate 
+#    - new_gaussians     --> updated gaussians
 #
 #==============================================================================    
 def updateGaussians(avg_pixels, old_gaussians, old_learning_rate):  
@@ -242,7 +249,15 @@ def updateGaussians(avg_pixels, old_gaussians, old_learning_rate):
     return new_learning_rate, new_gaussians
 
 #==============================================================================
-#----------------------UPDATE BACKGROUNG RATIO---------------------------------
+#--------------------------UPDATE LEARNING RATE--------------------------------
+#    
+#   PARAMS:
+#   - avg_pixel      --> new pixel average computed
+#   - learning_rate  --> actual learning rate
+#    
+#   RETURN:
+#   - ratio          --> updated background ratio
+#  
 #==============================================================================
 def updateBackgroundRatio(avg_pixel, learning_rate):
     idx = intersection(learning_rate[DAY], learning_rate[NIGHT])
@@ -258,7 +273,14 @@ def updateBackgroundRatio(avg_pixel, learning_rate):
     print('--Learning Rate : {}'.format(1 - ratio))
     return ratio
 # =============================================================================
-#   
+# ------------------------------UDPATE THRESHOLD-------------------------------
+#    
+#     PARAMS:
+#     - avg_pixel  --> new pixel average computed
+#     - threshol   --> threshold function
+#  
+#     RETURN:
+#     - threshold_value  --> value of threshold when there is this avg_pixel
 # =============================================================================
 def updateThreshold(avg_pixel, threshold):
     
@@ -267,14 +289,25 @@ def updateThreshold(avg_pixel, threshold):
     
     return threshold_value
   
-##==============================================================================
+# =============================================================================
+# ---------------------------INTERSECTION--------------------------------------
+#    Intersection between the function
+#    
+#    PARAMS:
+#    - func1 --> function to be intersected
+#    - func2 --> function to be intersected
+#  
+#    RETURN:
+#    - IDX --> intersection point
+#  
+# =============================================================================
 def intersection(func1, func2):
     idx = np.argwhere(np.diff(np.sign(func1 - func2)) != 0)
     idx = idx[0][0]
     
     return idx
 # =============================================================================
-# 
+# ------------------------------SHOW IMAGE-------------------------------------
 # =============================================================================
 def showImage(frame):
     
